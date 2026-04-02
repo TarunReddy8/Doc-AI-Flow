@@ -1,0 +1,151 @@
+name: DocAI CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── 1. LINT & CODE QUALITY ─────────────────────────────────────────────
+  lint:
+    name: Lint & Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linters
+        run: pip install ruff
+
+      - name: Run ruff lint
+        run: ruff check app/ ml/ monitoring/ tests/ --ignore E501
+
+      - name: Run ruff format check
+        run: ruff format --check app/ ml/ monitoring/ tests/
+
+  # ── 2. UNIT TESTS ─────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    env:
+      LLM_PROVIDER: mock
+      LLM_MODEL: mock
+      OCR_ENGINE: tesseract
+      CHROMA_PERSIST_DIR: ./data/chroma
+      CHROMA_COLLECTION_NAME: docai_documents
+      MLFLOW_TRACKING_URI: sqlite:///data/mlflow_test.db
+      MLFLOW_EXPERIMENT_NAME: docai-test
+      DATABASE_URL: sqlite+aiosqlite:///./data/docai_test.db
+      LOG_LEVEL: INFO
+      ENABLE_METRICS: "true"
+      ACCURACY_THRESHOLD: "0.85"
+      MAX_FILE_SIZE_MB: "50"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y tesseract-ocr
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install fastapi uvicorn python-multipart pydantic pydantic-settings
+          pip install langchain langchain-community langchain-openai langchain-anthropic
+          pip install langchain-google-genai langchain-groq
+          pip install chromadb structlog mlflow
+          pip install pytesseract Pillow pdf2image
+          pip install prometheus-client sqlalchemy aiosqlite aiofiles
+          pip install pytest pytest-asyncio pytest-cov httpx python-dotenv
+
+      - name: Create required directories
+        run: mkdir -p data/chroma data/sample_docs data/mlflow_artifacts
+
+      - name: Generate sample documents
+        run: python data/generate_samples.py
+
+      - name: Run tests
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  # ── 3. EVALUATION PIPELINE ────────────────────────────────────────────
+  evaluate:
+    name: Extraction Evaluation
+    runs-on: ubuntu-latest
+    needs: test
+
+    env:
+      LLM_PROVIDER: mock
+      LLM_MODEL: mock
+      MLFLOW_TRACKING_URI: sqlite:///data/mlflow_eval.db
+      MLFLOW_EXPERIMENT_NAME: docai-eval
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install fastapi pydantic pydantic-settings langchain langchain-community
+          pip install chromadb structlog mlflow pytesseract Pillow
+          pip install prometheus-client sqlalchemy aiosqlite python-dotenv
+
+      - name: Create directories
+        run: mkdir -p data/chroma data/mlflow_artifacts
+
+      - name: Run evaluation pipeline
+        run: python -m ml.pipelines.evaluation --doc-type invoice
+
+  # ── 4. BUILD DOCKER IMAGE ─────────────────────────────────────────────
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push — verify it builds)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          tags: docai:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

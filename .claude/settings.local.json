@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:8000/api/v1/health)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/extract -F \"file=@data/sample_docs/sample_invoice.png\" -F \"document_type=invoice\")"
+    ]
+  }
+}
