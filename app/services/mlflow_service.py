@@ -5,7 +5,6 @@ Enables prompt versioning, A/B comparison, and drift detection.
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 from app.core.config import get_settings
@@ -102,9 +101,7 @@ class MLflowService:
             logger.error("mlflow_logging_failed", error=str(e))
             return None
 
-    async def get_prompt_comparison(
-        self, document_type: str
-    ) -> dict[str, Any]:
+    async def get_prompt_comparison(self, document_type: str) -> dict[str, Any]:
         """
         Compare prompt version performance for A/B testing.
         Returns metrics grouped by prompt version.
@@ -115,9 +112,7 @@ class MLflowService:
         try:
             import mlflow
 
-            experiment = mlflow.get_experiment_by_name(
-                settings.mlflow_experiment_name
-            )
+            experiment = mlflow.get_experiment_by_name(settings.mlflow_experiment_name)
             if not experiment:
                 return {}
 
@@ -163,9 +158,7 @@ class MLflowService:
         try:
             import mlflow
 
-            experiment = mlflow.get_experiment_by_name(
-                settings.mlflow_experiment_name
-            )
+            experiment = mlflow.get_experiment_by_name(settings.mlflow_experiment_name)
             if not experiment:
                 return {"status": "no_data"}
 

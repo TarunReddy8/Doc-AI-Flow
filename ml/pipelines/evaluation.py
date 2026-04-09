@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import argparse
-from pathlib import Path
 from typing import Any
 
 # Ground truth samples for evaluation (in production, load from a database)
@@ -146,10 +145,10 @@ def run_evaluation(
     if not samples:
         return {"error": f"No ground truth for type: {document_type}"}
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  DocAI Evaluation Pipeline — {document_type.upper()}")
     print(f"  Samples: {len(samples)}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # In production, this would call the extraction service
     # Here we demonstrate the evaluation framework
@@ -160,7 +159,7 @@ def run_evaluation(
     }
 
     for i, sample in enumerate(samples):
-        print(f"Sample {i+1}/{len(samples)}:")
+        print(f"Sample {i + 1}/{len(samples)}:")
         print(f"  Expected fields: {list(sample['expected'].keys())}")
 
         # Placeholder — in production, call extraction_service.extract()
@@ -169,8 +168,10 @@ def run_evaluation(
         simulated_extraction = sample["expected"].copy()  # Perfect extraction
         accuracy = calculate_field_accuracy(simulated_extraction, sample["expected"])
 
-        print(f"  Accuracy: {accuracy['_summary']['accuracy']*100:.1f}%")
-        print(f"  Fields: {accuracy['_summary']['correct']}/{accuracy['_summary']['total']}")
+        print(f"  Accuracy: {accuracy['_summary']['accuracy'] * 100:.1f}%")
+        print(
+            f"  Fields: {accuracy['_summary']['correct']}/{accuracy['_summary']['total']}"
+        )
         report["samples"].append(accuracy)
 
     # Overall accuracy
@@ -178,10 +179,10 @@ def run_evaluation(
     all_total = sum(s["_summary"]["total"] for s in report["samples"])
     report["overall_accuracy"] = round(all_correct / max(all_total, 1), 4)
 
-    print(f"\n{'='*60}")
-    print(f"  Overall Accuracy: {report['overall_accuracy']*100:.1f}%")
+    print(f"\n{'=' * 60}")
+    print(f"  Overall Accuracy: {report['overall_accuracy'] * 100:.1f}%")
     print(f"  Total Fields Evaluated: {all_total}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     return report
 

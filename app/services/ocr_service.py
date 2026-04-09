@@ -33,6 +33,7 @@ class OCRService:
         # Try Tesseract
         try:
             import pytesseract
+
             pytesseract.get_tesseract_version()
             self._tesseract_available = True
             logger.info("ocr_engine_ready", engine="tesseract")
@@ -42,6 +43,7 @@ class OCRService:
         # Try DocTR
         try:
             from doctr.models import ocr_predictor
+
             self._doctr_model = ocr_predictor(pretrained=True)
             logger.info("ocr_engine_ready", engine="doctr")
         except Exception:
@@ -57,7 +59,7 @@ class OCRService:
     ) -> OCRResult:
         """
         Extract text from a document file.
-        
+
         Tries the primary engine first, falls back to secondary if confidence
         is below threshold or primary fails.
         """
@@ -79,7 +81,9 @@ class OCRService:
 
             engine_used = self.primary_engine
         except Exception as e:
-            logger.warning("primary_ocr_failed", engine=self.primary_engine, error=str(e))
+            logger.warning(
+                "primary_ocr_failed", engine=self.primary_engine, error=str(e)
+            )
             # Fallback
             text, confidence, engine_used = self._fallback_extract(images)
 
@@ -124,6 +128,7 @@ class OCRService:
         if suffix == ".pdf":
             try:
                 from pdf2image import convert_from_bytes
+
                 return convert_from_bytes(content, dpi=300)
             except ImportError:
                 logger.error("pdf2image_not_installed")
@@ -166,9 +171,7 @@ Payment Terms: Net 30
 """
         return sample_text, 0.75, "demo_fallback"
 
-    def _extract_with_tesseract(
-        self, images: list[Image.Image]
-    ) -> tuple[str, float]:
+    def _extract_with_tesseract(self, images: list[Image.Image]) -> tuple[str, float]:
         """Extract using Tesseract with confidence scoring."""
         import pytesseract
 
@@ -190,9 +193,7 @@ Payment Terms: Net 30
         avg_confidence = total_conf / len(images) if images else 0.0
         return "\n\n".join(all_text), min(avg_confidence, 1.0)
 
-    def _extract_with_doctr(
-        self, images: list[Image.Image]
-    ) -> tuple[str, float]:
+    def _extract_with_doctr(self, images: list[Image.Image]) -> tuple[str, float]:
         """Extract using DocTR with confidence scoring."""
         import numpy as np
 
@@ -215,9 +216,7 @@ Payment Terms: Net 30
         avg_confidence = sum(total_conf) / len(total_conf) if total_conf else 0.0
         return "\n\n".join(all_text), avg_confidence
 
-    def _fallback_extract(
-        self, images: list[Image.Image]
-    ) -> tuple[str, float, str]:
+    def _fallback_extract(self, images: list[Image.Image]) -> tuple[str, float, str]:
         """Try the alternate engine as fallback."""
         if self.primary_engine == "doctr" and self._tesseract_available:
             text, conf = self._extract_with_tesseract(images)

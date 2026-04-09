@@ -11,7 +11,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.schemas.extraction import DocumentType, InvoiceData, ContractData
+from app.schemas.extraction import DocumentType
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -137,6 +137,7 @@ class ExtractionService:
         try:
             if self.provider == "openai":
                 from langchain_openai import ChatOpenAI
+
                 self._llm = ChatOpenAI(
                     model=self.model,
                     temperature=settings.llm_temperature,
@@ -145,6 +146,7 @@ class ExtractionService:
                 )
             elif self.provider == "anthropic":
                 from langchain_anthropic import ChatAnthropic
+
                 self._llm = ChatAnthropic(
                     model=self.model,
                     temperature=settings.llm_temperature,
@@ -153,6 +155,7 @@ class ExtractionService:
                 )
             elif self.provider == "gemini":
                 from langchain_google_genai import ChatGoogleGenerativeAI
+
                 self._llm = ChatGoogleGenerativeAI(
                     model=self.model,
                     temperature=settings.llm_temperature,
@@ -161,6 +164,7 @@ class ExtractionService:
                 )
             elif self.provider == "groq":
                 from langchain_groq import ChatGroq
+
                 self._llm = ChatGroq(
                     model=self.model,
                     temperature=settings.llm_temperature,
@@ -175,6 +179,7 @@ class ExtractionService:
         """Auto-detect document type using LLM classification."""
         if self._mock_mode:
             from app.services.mock_extraction import mock_classify
+
             return mock_classify(ocr_text)
 
         prompt_config = PROMPT_REGISTRY["classify_v1"]
@@ -183,12 +188,14 @@ class ExtractionService:
         try:
             from langchain_core.messages import SystemMessage, HumanMessage
 
-            response = await self._llm.ainvoke([
-                SystemMessage(content=prompt_config["system"]),
-                HumanMessage(
-                    content=prompt_config["template"].format(ocr_text=truncated)
-                ),
-            ])
+            response = await self._llm.ainvoke(
+                [
+                    SystemMessage(content=prompt_config["system"]),
+                    HumanMessage(
+                        content=prompt_config["template"].format(ocr_text=truncated)
+                    ),
+                ]
+            )
 
             result = response.content.strip().lower()
             for doc_type in DocumentType:
@@ -213,6 +220,7 @@ class ExtractionService:
         # Mock mode — no API key needed
         if self._mock_mode:
             from app.services.mock_extraction import mock_extract
+
             return mock_extract(ocr_text, document_type)
 
         start_time = time.time()
@@ -231,12 +239,14 @@ class ExtractionService:
         try:
             from langchain_core.messages import SystemMessage, HumanMessage
 
-            response = await self._llm.ainvoke([
-                SystemMessage(content=prompt_config["system"]),
-                HumanMessage(
-                    content=prompt_config["template"].format(ocr_text=ocr_text)
-                ),
-            ])
+            response = await self._llm.ainvoke(
+                [
+                    SystemMessage(content=prompt_config["system"]),
+                    HumanMessage(
+                        content=prompt_config["template"].format(ocr_text=ocr_text)
+                    ),
+                ]
+            )
 
             raw_output = response.content.strip()
             extracted = self._parse_json_output(raw_output)
@@ -257,9 +267,7 @@ class ExtractionService:
             logger.error("extraction_failed", error=str(e))
             return {}, version_used, 0.0
 
-    def _select_prompt(
-        self, doc_type: DocumentType, version: str | None
-    ) -> str:
+    def _select_prompt(self, doc_type: DocumentType, version: str | None) -> str:
         """Select the appropriate prompt key."""
         if version:
             key = f"{doc_type.value}_{version}"
@@ -267,9 +275,7 @@ class ExtractionService:
                 return key
 
         # Default to latest version
-        type_prompts = [
-            k for k in PROMPT_REGISTRY if k.startswith(doc_type.value)
-        ]
+        type_prompts = [k for k in PROMPT_REGISTRY if k.startswith(doc_type.value)]
         if type_prompts:
             return sorted(type_prompts)[-1]  # Latest version
 
@@ -280,7 +286,7 @@ class ExtractionService:
         cleaned = raw.strip()
         if cleaned.startswith("```"):
             lines = cleaned.split("\n")
-            lines = [l for l in lines if not l.strip().startswith("```")]
+            lines = [line for line in lines if not line.strip().startswith("```")]
             cleaned = "\n".join(lines)
 
         try:
@@ -306,15 +312,25 @@ class ExtractionService:
         """
         if doc_type == DocumentType.INVOICE:
             critical_fields = [
-                "invoice_number", "vendor_name", "total_amount", "invoice_date"
+                "invoice_number",
+                "vendor_name",
+                "total_amount",
+                "invoice_date",
             ]
             important_fields = [
-                "customer_name", "line_items", "subtotal", "tax", "currency"
+                "customer_name",
+                "line_items",
+                "subtotal",
+                "tax",
+                "currency",
             ]
         elif doc_type == DocumentType.CONTRACT:
             critical_fields = ["contract_title", "parties", "effective_date"]
             important_fields = [
-                "expiration_date", "contract_value", "key_terms", "governing_law"
+                "expiration_date",
+                "contract_value",
+                "key_terms",
+                "governing_law",
             ]
         else:
             # Generic scoring
@@ -322,13 +338,11 @@ class ExtractionService:
             return min(non_null / max(len(data), 1), 1.0)
 
         critical_score = sum(
-            1 for f in critical_fields
-            if data.get(f) is not None and data.get(f) != ""
+            1 for f in critical_fields if data.get(f) is not None and data.get(f) != ""
         ) / len(critical_fields)
 
         important_score = sum(
-            1 for f in important_fields
-            if data.get(f) is not None and data.get(f) != ""
+            1 for f in important_fields if data.get(f) is not None and data.get(f) != ""
         ) / len(important_fields)
 
         # Critical fields weighted 70%, important fields 30%

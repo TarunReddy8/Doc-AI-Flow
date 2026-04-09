@@ -3,9 +3,6 @@ Tests for DocAI extraction pipeline.
 Covers OCR validation, extraction parsing, API endpoints, and schema validation.
 """
 
-import pytest
-import json
-from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -25,6 +22,7 @@ client = TestClient(app)
 
 
 # ── Schema Tests ─────────────────────────────────────────────────────────
+
 
 class TestSchemas:
     def test_invoice_data_valid(self):
@@ -74,6 +72,7 @@ class TestSchemas:
 
 
 # ── Extraction Service Tests ─────────────────────────────────────────────
+
 
 class TestExtractionService:
     def test_json_parsing_clean(self):
@@ -130,6 +129,7 @@ class TestExtractionService:
 
 # ── Evaluation Pipeline Tests ────────────────────────────────────────────
 
+
 class TestEvaluation:
     def test_field_accuracy_perfect_match(self):
         extracted = {"invoice_number": "INV-001", "total_amount": 1500.00}
@@ -164,6 +164,7 @@ class TestEvaluation:
 
 # ── API Endpoint Tests ───────────────────────────────────────────────────
 
+
 class TestAPI:
     def test_root_endpoint(self):
         response = client.get("/")
@@ -185,6 +186,7 @@ class TestAPI:
 
     def test_extract_wrong_file_type(self):
         from io import BytesIO
+
         response = client.post(
             "/api/v1/extract",
             files={"file": ("test.exe", BytesIO(b"fake"), "application/octet-stream")},
