@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 # ---------- Enums ----------
 
+
 class DocumentType(str, Enum):
     INVOICE = "invoice"
     CONTRACT = "contract"
@@ -28,6 +29,7 @@ class ExtractionStatus(str, Enum):
 
 
 # ---------- Invoice Schema ----------
+
 
 class LineItem(BaseModel):
     description: str = Field(..., description="Item description")
@@ -54,6 +56,7 @@ class InvoiceData(BaseModel):
 
 # ---------- Contract Schema ----------
 
+
 class ContractData(BaseModel):
     contract_title: str | None = None
     parties: list[str] = Field(default_factory=list)
@@ -66,6 +69,7 @@ class ContractData(BaseModel):
 
 
 # ---------- API Schemas ----------
+
 
 class ExtractionRequest(BaseModel):
     document_type: DocumentType = Field(

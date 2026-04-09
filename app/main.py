@@ -21,12 +21,14 @@ async def lifespan(app: FastAPI):
     log = get_logger("docai")
     settings = get_settings()
 
-    APP_INFO.info({
-        "version": "1.0.0",
-        "ocr_engine": settings.ocr_engine,
-        "llm_provider": settings.llm_provider,
-        "llm_model": settings.llm_model,
-    })
+    APP_INFO.info(
+        {
+            "version": "1.0.0",
+            "ocr_engine": settings.ocr_engine,
+            "llm_provider": settings.llm_provider,
+            "llm_model": settings.llm_model,
+        }
+    )
 
     log.info(
         "application_started",

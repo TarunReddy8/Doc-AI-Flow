@@ -7,15 +7,12 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Any
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Query, Depends
-from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings, Settings
 from app.core.logging import get_logger
 from app.schemas.extraction import (
-    ExtractionRequest,
     ExtractionResult,
     ExtractionStatus,
     DocumentType,
@@ -50,6 +47,7 @@ def get_config() -> Settings:
 
 # ── Health Check ─────────────────────────────────────────────────────────
 
+
 @router.get("/health", response_model=HealthResponse)
 async def health_check(config: Settings = Depends(get_config)):
     """System health check — verifies all services are connected."""
@@ -67,6 +65,7 @@ async def health_check(config: Settings = Depends(get_config)):
 
 
 # ── Document Extraction (Main Endpoint) ─────────────────────────────────
+
 
 @router.post("/extract", response_model=ExtractionResult)
 async def extract_document(
@@ -152,9 +151,7 @@ async def extract_document(
         ).observe(confidence)
 
         fields_count = len([v for v in extracted_data.values() if v is not None])
-        FIELDS_EXTRACTED.labels(document_type=document_type.value).observe(
-            fields_count
-        )
+        FIELDS_EXTRACTED.labels(document_type=document_type.value).observe(fields_count)
 
         # ── Step 6: Store in ChromaDB ────────────────────────────────
         if store_in_vectordb:
@@ -191,9 +188,7 @@ async def extract_document(
         )
 
         # ── Build response ───────────────────────────────────────────
-        REQUESTS_TOTAL.labels(
-            document_type=document_type.value, status="success"
-        ).inc()
+        REQUESTS_TOTAL.labels(document_type=document_type.value, status="success").inc()
         DOCUMENTS_PROCESSED.inc()
         REQUEST_DURATION.labels(document_type=document_type.value).observe(
             total_time / 1000
@@ -215,9 +210,7 @@ async def extract_document(
     except HTTPException:
         raise
     except Exception as e:
-        REQUESTS_TOTAL.labels(
-            document_type=document_type.value, status="error"
-        ).inc()
+        REQUESTS_TOTAL.labels(document_type=document_type.value, status="error").inc()
         EXTRACTION_ERRORS.labels(
             document_type=document_type.value,
             error_type=type(e).__name__,
@@ -229,6 +222,7 @@ async def extract_document(
 
 
 # ── Semantic Search ──────────────────────────────────────────────────────
+
 
 @router.get("/search")
 async def search_documents(
@@ -248,6 +242,7 @@ async def search_documents(
 
 # ── Prompt A/B Testing ───────────────────────────────────────────────────
 
+
 @router.get("/prompts/compare")
 async def compare_prompts(
     document_type: str = Query(
@@ -262,6 +257,7 @@ async def compare_prompts(
 
 # ── Drift Detection ─────────────────────────────────────────────────────
 
+
 @router.get("/monitoring/drift")
 async def check_drift(
     document_type: str = Query(default="invoice"),
@@ -275,6 +271,7 @@ async def check_drift(
 
 # ── Metrics ──────────────────────────────────────────────────────────────
 
+
 @router.get("/metrics/summary", response_model=ExtractionMetrics)
 async def get_metrics_summary():
     """Get high-level extraction pipeline metrics."""
@@ -286,6 +283,7 @@ async def get_metrics_summary():
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
+
 
 def _validate_file(file: UploadFile, config: Settings) -> None:
     """Validate uploaded file type and size."""

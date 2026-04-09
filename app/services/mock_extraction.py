@@ -18,24 +18,72 @@ logger = get_logger(__name__)
 
 # Realistic mock data pools
 MOCK_VENDORS = [
-    "Acme Cloud Services", "TechParts GmbH", "DataFlow Solutions",
-    "Quantum Computing Inc", "NeuralNet Labs", "ServerStack LLC",
+    "Acme Cloud Services",
+    "TechParts GmbH",
+    "DataFlow Solutions",
+    "Quantum Computing Inc",
+    "NeuralNet Labs",
+    "ServerStack LLC",
 ]
 
 MOCK_CUSTOMERS = [
-    "Widget Corp", "StartupAI Inc", "MegaTech Industries",
-    "Innovation Labs", "CloudFirst Solutions", "DevOps Masters",
+    "Widget Corp",
+    "StartupAI Inc",
+    "MegaTech Industries",
+    "Innovation Labs",
+    "CloudFirst Solutions",
+    "DevOps Masters",
 ]
 
 MOCK_LINE_ITEMS = [
-    {"description": "Cloud Hosting (monthly)", "quantity": 1, "unit_price": 2400.00, "total": 2400.00},
-    {"description": "API Calls (10K bundle)", "quantity": 3, "unit_price": 150.00, "total": 450.00},
-    {"description": "Premium Support", "quantity": 1, "unit_price": 500.00, "total": 500.00},
-    {"description": "GPU Compute (hourly)", "quantity": 120, "unit_price": 3.50, "total": 420.00},
-    {"description": "Data Storage (TB)", "quantity": 5, "unit_price": 80.00, "total": 400.00},
-    {"description": "SSL Certificate (annual)", "quantity": 2, "unit_price": 75.00, "total": 150.00},
-    {"description": "Load Balancer", "quantity": 1, "unit_price": 350.00, "total": 350.00},
-    {"description": "CDN Bandwidth (TB)", "quantity": 10, "unit_price": 45.00, "total": 450.00},
+    {
+        "description": "Cloud Hosting (monthly)",
+        "quantity": 1,
+        "unit_price": 2400.00,
+        "total": 2400.00,
+    },
+    {
+        "description": "API Calls (10K bundle)",
+        "quantity": 3,
+        "unit_price": 150.00,
+        "total": 450.00,
+    },
+    {
+        "description": "Premium Support",
+        "quantity": 1,
+        "unit_price": 500.00,
+        "total": 500.00,
+    },
+    {
+        "description": "GPU Compute (hourly)",
+        "quantity": 120,
+        "unit_price": 3.50,
+        "total": 420.00,
+    },
+    {
+        "description": "Data Storage (TB)",
+        "quantity": 5,
+        "unit_price": 80.00,
+        "total": 400.00,
+    },
+    {
+        "description": "SSL Certificate (annual)",
+        "quantity": 2,
+        "unit_price": 75.00,
+        "total": 150.00,
+    },
+    {
+        "description": "Load Balancer",
+        "quantity": 1,
+        "unit_price": 350.00,
+        "total": 350.00,
+    },
+    {
+        "description": "CDN Bandwidth (TB)",
+        "quantity": 10,
+        "unit_price": 45.00,
+        "total": 450.00,
+    },
 ]
 
 MOCK_CONTRACT_TERMS = [
