@@ -5,9 +5,10 @@ Supports PDF, PNG, JPG, TIFF with automatic engine fallback.
 
 from __future__ import annotations
 
-import time
 import io
+import time
 from pathlib import Path
+
 from PIL import Image
 
 from app.core.config import get_settings
@@ -81,9 +82,7 @@ class OCRService:
 
             engine_used = self.primary_engine
         except Exception as e:
-            logger.warning(
-                "primary_ocr_failed", engine=self.primary_engine, error=str(e)
-            )
+            logger.warning("primary_ocr_failed", engine=self.primary_engine, error=str(e))
             # Fallback
             text, confidence, engine_used = self._fallback_extract(images)
 
@@ -133,8 +132,7 @@ class OCRService:
             except ImportError:
                 logger.error("pdf2image_not_installed")
                 raise RuntimeError(
-                    "pdf2image is required for PDF processing. "
-                    "Install with: pip install pdf2image"
+                    "pdf2image is required for PDF processing. Install with: pip install pdf2image"
                 )
         elif suffix in (".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"):
             return [Image.open(io.BytesIO(content))]
@@ -181,9 +179,7 @@ Payment Terms: Net 30
         for img in images:
             # Get detailed data for confidence
             data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
-            confidences = [
-                int(c) for c in data["conf"] if str(c).isdigit() and int(c) > 0
-            ]
+            confidences = [int(c) for c in data["conf"] if str(c).isdigit() and int(c) > 0]
             page_text = pytesseract.image_to_string(img)
             all_text.append(page_text)
 

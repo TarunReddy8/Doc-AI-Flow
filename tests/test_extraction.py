@@ -7,16 +7,15 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.schemas.extraction import (
+    ContractData,
     DocumentType,
+    ExtractionResult,
     ExtractionStatus,
     InvoiceData,
-    ContractData,
-    ExtractionResult,
     OCRResult,
 )
 from app.services.extraction_service import ExtractionService
 from ml.pipelines.evaluation import calculate_field_accuracy
-
 
 client = TestClient(app)
 

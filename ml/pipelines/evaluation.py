@@ -83,20 +83,25 @@ def render_receipt_text(raw_parse: dict[str, Any], idx: int = 0) -> str:
     lines.append("-" * 24)
     sub_total = raw_parse.get("sub_total", {}) or {}
     if sub_total.get("subtotal_price"):
-        lines.append(f"{_SUBTOTAL_LABELS[idx % len(_SUBTOTAL_LABELS)]}   "
-                     f"{money(str(sub_total['subtotal_price']).strip())}")
+        lines.append(
+            f"{_SUBTOTAL_LABELS[idx % len(_SUBTOTAL_LABELS)]}   "
+            f"{money(str(sub_total['subtotal_price']).strip())}"
+        )
     if sub_total.get("discount_price"):
         lines.append(f"Discount   -{money(str(sub_total['discount_price']).strip())}")
     if sub_total.get("service_price"):
         lines.append(f"Service Charge   {money(str(sub_total['service_price']).strip())}")
     if sub_total.get("tax_price"):
-        lines.append(f"{_TAX_LABELS[idx % len(_TAX_LABELS)]}   "
-                     f"{money(str(sub_total['tax_price']).strip())}")
+        lines.append(
+            f"{_TAX_LABELS[idx % len(_TAX_LABELS)]}   {money(str(sub_total['tax_price']).strip())}"
+        )
 
     total = raw_parse.get("total", {}) or {}
     if total.get("total_price"):
-        lines.append(f"{_TOTAL_LABELS[idx % len(_TOTAL_LABELS)]}   "
-                     f"{money(str(total['total_price']).strip())}")
+        lines.append(
+            f"{_TOTAL_LABELS[idx % len(_TOTAL_LABELS)]}   "
+            f"{money(str(total['total_price']).strip())}"
+        )
     if total.get("cashprice"):
         lines.append(f"CASH   {money(str(total['cashprice']).strip())}")
     if total.get("changeprice"):
@@ -104,9 +109,7 @@ def render_receipt_text(raw_parse: dict[str, Any], idx: int = 0) -> str:
     return "\n".join(lines)
 
 
-def calculate_field_accuracy(
-    extracted: dict[str, Any], expected: dict[str, Any]
-) -> dict[str, Any]:
+def calculate_field_accuracy(extracted: dict[str, Any], expected: dict[str, Any]) -> dict[str, Any]:
     """Compare extracted fields against ground truth; per-field and overall accuracy."""
     results = {}
     correct = 0
@@ -127,8 +130,7 @@ def calculate_field_accuracy(
                 match = False
         else:
             match = (
-                str(extracted_value or "").strip().lower()
-                == str(expected_value).strip().lower()
+                str(extracted_value or "").strip().lower() == str(expected_value).strip().lower()
             )
 
         if match:
@@ -175,16 +177,17 @@ def run_evaluation() -> dict[str, Any]:
     print(f"  Receipts: {len(receipts)}")
     print(f"{'=' * 60}\n")
 
-    report: dict[str, Any] = {"dataset": "cord-v2", "total_samples": len(receipts),
-                              "samples": []}
+    report: dict[str, Any] = {"dataset": "cord-v2", "total_samples": len(receipts), "samples": []}
     for i, rec in enumerate(receipts):
         truth = rec["ground_truth"]
         expected = {f: truth[f] for f in _SCORED_FIELDS if truth.get(f) is not None}
-        text = render_receipt_text(rec["raw_parse"], i)   # full real receipt layout
-        extracted = extract_receipt_fields(text)          # <-- real extraction
+        text = render_receipt_text(rec["raw_parse"], i)  # full real receipt layout
+        extracted = extract_receipt_fields(text)  # <-- real extraction
         accuracy = calculate_field_accuracy(extracted, expected)
-        print(f"  {rec['image']}: {accuracy['_summary']['accuracy'] * 100:5.1f}%  "
-              f"({accuracy['_summary']['correct']}/{accuracy['_summary']['total']} fields)")
+        print(
+            f"  {rec['image']}: {accuracy['_summary']['accuracy'] * 100:5.1f}%  "
+            f"({accuracy['_summary']['correct']}/{accuracy['_summary']['total']} fields)"
+        )
         report["samples"].append({"image": rec["image"], **accuracy})
 
     all_correct = sum(s["_summary"]["correct"] for s in report["samples"])
@@ -198,12 +201,13 @@ def run_evaluation() -> dict[str, Any]:
             if field == "_summary" or not isinstance(res, dict) or "match" not in res:
                 continue
             per_field.setdefault(field, []).append(res["match"])
-    report["per_field_accuracy"] = {
-        f: round(sum(v) / len(v), 4) for f, v in per_field.items()}
+    report["per_field_accuracy"] = {f: round(sum(v) / len(v), 4) for f, v in per_field.items()}
 
     print(f"\n{'=' * 60}")
-    print(f"  Overall field accuracy: {report['overall_accuracy'] * 100:.1f}%  "
-          f"({all_correct}/{all_total} fields on {len(receipts)} real receipts)")
+    print(
+        f"  Overall field accuracy: {report['overall_accuracy'] * 100:.1f}%  "
+        f"({all_correct}/{all_total} fields on {len(receipts)} real receipts)"
+    )
     for field, acc in sorted(report["per_field_accuracy"].items()):
         print(f"    {field:18s} {acc * 100:5.1f}%")
     print(f"{'=' * 60}\n")

@@ -20,8 +20,12 @@ TOTAL_LABELS = ("grand total", "amount due", "total")
 SUBTOTAL_LABELS = ("sub total", "subtotal", "sub-total")
 TAX_LABELS = ("tax", "vat", "ppn", "gst")
 # labels that mark a line as a summary row, not a purchasable line item
-_SUMMARY_LABELS = TOTAL_LABELS + SUBTOTAL_LABELS + TAX_LABELS + (
-    "change", "cash", "credit", "card", "payment", "qty", "count", "discount")
+_SUMMARY_LABELS = (
+    TOTAL_LABELS
+    + SUBTOTAL_LABELS
+    + TAX_LABELS
+    + ("change", "cash", "credit", "card", "payment", "qty", "count", "discount")
+)
 
 
 def _parse_number(token: str) -> float | None:

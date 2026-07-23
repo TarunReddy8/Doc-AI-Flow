@@ -4,13 +4,14 @@ Main application entry point with middleware, CORS, and metrics.
 """
 
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 
-from app.core.config import get_settings
-from app.core.logging import setup_logging, get_logger
 from app.api.routes import router
+from app.core.config import get_settings
+from app.core.logging import get_logger, setup_logging
 from monitoring.metrics import APP_INFO
 
 

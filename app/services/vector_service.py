@@ -60,9 +60,7 @@ class VectorService:
             doc_metadata = {
                 "document_type": document_type,
                 "extracted_at": datetime.utcnow().isoformat(),
-                "field_count": len(
-                    [v for v in extracted_data.values() if v is not None]
-                ),
+                "field_count": len([v for v in extracted_data.values() if v is not None]),
             }
             if metadata:
                 doc_metadata.update({k: str(v) for k, v in metadata.items()})

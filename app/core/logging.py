@@ -2,8 +2,10 @@
 Structured logging with structlog — JSON output for production, pretty for dev.
 """
 
-import structlog
 import logging
+
+import structlog
+
 from app.core.config import get_settings
 
 

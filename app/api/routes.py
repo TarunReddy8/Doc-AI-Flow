@@ -8,31 +8,31 @@ from __future__ import annotations
 import time
 import uuid
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, Query, Depends
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
-from app.core.config import get_settings, Settings
+from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 from app.schemas.extraction import (
+    DocumentType,
+    ExtractionMetrics,
     ExtractionResult,
     ExtractionStatus,
-    DocumentType,
     HealthResponse,
-    ExtractionMetrics,
 )
-from app.services.ocr_service import get_ocr_service
 from app.services.extraction_service import get_extraction_service
-from app.services.vector_service import get_vector_service
 from app.services.mlflow_service import get_mlflow_service
+from app.services.ocr_service import get_ocr_service
+from app.services.vector_service import get_vector_service
 from monitoring.metrics import (
-    REQUESTS_TOTAL,
-    REQUEST_DURATION,
+    ACTIVE_EXTRACTIONS,
+    DOCUMENTS_PROCESSED,
+    EXTRACTION_CONFIDENCE,
+    EXTRACTION_ERRORS,
+    FIELDS_EXTRACTED,
     OCR_CONFIDENCE,
     OCR_DURATION,
-    EXTRACTION_CONFIDENCE,
-    FIELDS_EXTRACTED,
-    EXTRACTION_ERRORS,
-    DOCUMENTS_PROCESSED,
-    ACTIVE_EXTRACTIONS,
+    REQUEST_DURATION,
+    REQUESTS_TOTAL,
 )
 
 logger = get_logger(__name__)
@@ -75,9 +75,7 @@ async def extract_document(
         description="Document type (auto-detected if unknown)",
     ),
     store_in_vectordb: bool = Query(default=True),
-    prompt_version: str | None = Query(
-        default=None, description="Prompt version for A/B testing"
-    ),
+    prompt_version: str | None = Query(default=None, description="Prompt version for A/B testing"),
     config: Settings = Depends(get_config),
 ):
     """
@@ -110,12 +108,8 @@ async def extract_document(
         ocr_service = get_ocr_service()
         ocr_result = await ocr_service.extract_text(content, file.filename)
 
-        OCR_CONFIDENCE.labels(engine=ocr_result.engine_used).observe(
-            ocr_result.confidence
-        )
-        OCR_DURATION.labels(engine=ocr_result.engine_used).observe(
-            ocr_result.processing_time_ms
-        )
+        OCR_CONFIDENCE.labels(engine=ocr_result.engine_used).observe(ocr_result.confidence)
+        OCR_DURATION.labels(engine=ocr_result.engine_used).observe(ocr_result.processing_time_ms)
 
         if not ocr_result.raw_text.strip():
             raise HTTPException(
@@ -125,17 +119,14 @@ async def extract_document(
 
         if ocr_result.confidence < config.ocr_confidence_threshold:
             warnings.append(
-                f"Low OCR confidence ({ocr_result.confidence:.2f}). "
-                "Results may be inaccurate."
+                f"Low OCR confidence ({ocr_result.confidence:.2f}). Results may be inaccurate."
             )
 
         # ── Step 4: Classify (if needed) ─────────────────────────────
         extraction_service = get_extraction_service()
 
         if document_type == DocumentType.UNKNOWN:
-            document_type = await extraction_service.classify_document(
-                ocr_result.raw_text
-            )
+            document_type = await extraction_service.classify_document(ocr_result.raw_text)
             logger.info("document_classified", type=document_type.value)
 
         # ── Step 5: LLM Extraction ───────────────────────────────────
@@ -190,9 +181,7 @@ async def extract_document(
         # ── Build response ───────────────────────────────────────────
         REQUESTS_TOTAL.labels(document_type=document_type.value, status="success").inc()
         DOCUMENTS_PROCESSED.inc()
-        REQUEST_DURATION.labels(document_type=document_type.value).observe(
-            total_time / 1000
-        )
+        REQUEST_DURATION.labels(document_type=document_type.value).observe(total_time / 1000)
 
         return ExtractionResult(
             document_id=document_id,
@@ -245,9 +234,7 @@ async def search_documents(
 
 @router.get("/prompts/compare")
 async def compare_prompts(
-    document_type: str = Query(
-        default="invoice", description="Document type to compare"
-    ),
+    document_type: str = Query(default="invoice", description="Document type to compare"),
 ):
     """Compare prompt version performance for A/B testing decisions."""
     mlflow_service = get_mlflow_service()

@@ -133,12 +133,8 @@ class MLflowService:
                     "avg_extraction_confidence": round(
                         group["metrics.extraction_confidence"].mean(), 4
                     ),
-                    "avg_processing_time_ms": round(
-                        group["metrics.processing_time_ms"].mean(), 2
-                    ),
-                    "avg_field_completeness": round(
-                        group["metrics.field_completeness"].mean(), 4
-                    ),
+                    "avg_processing_time_ms": round(group["metrics.processing_time_ms"].mean(), 2),
+                    "avg_field_completeness": round(group["metrics.field_completeness"].mean(), 4),
                 }
 
             return comparison

@@ -3,8 +3,7 @@ Prometheus metrics for monitoring extraction pipeline health.
 Tracks latency, throughput, errors, and extraction quality in real-time.
 """
 
-from prometheus_client import Counter, Histogram, Gauge, Info
-
+from prometheus_client import Counter, Gauge, Histogram, Info
 
 # ── Request metrics ──────────────────────────────────────────────────────
 

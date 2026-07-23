@@ -186,14 +186,12 @@ class ExtractionService:
         truncated = ocr_text[:500]
 
         try:
-            from langchain_core.messages import SystemMessage, HumanMessage
+            from langchain_core.messages import HumanMessage, SystemMessage
 
             response = await self._llm.ainvoke(
                 [
                     SystemMessage(content=prompt_config["system"]),
-                    HumanMessage(
-                        content=prompt_config["template"].format(ocr_text=truncated)
-                    ),
+                    HumanMessage(content=prompt_config["template"].format(ocr_text=truncated)),
                 ]
             )
 
@@ -237,14 +235,12 @@ class ExtractionService:
         )
 
         try:
-            from langchain_core.messages import SystemMessage, HumanMessage
+            from langchain_core.messages import HumanMessage, SystemMessage
 
             response = await self._llm.ainvoke(
                 [
                     SystemMessage(content=prompt_config["system"]),
-                    HumanMessage(
-                        content=prompt_config["template"].format(ocr_text=ocr_text)
-                    ),
+                    HumanMessage(content=prompt_config["template"].format(ocr_text=ocr_text)),
                 ]
             )
 
@@ -303,9 +299,7 @@ class ExtractionService:
             logger.warning("json_parse_failed", raw_length=len(raw))
             return {"raw_output": raw}
 
-    def _calculate_confidence(
-        self, data: dict[str, Any], doc_type: DocumentType
-    ) -> float:
+    def _calculate_confidence(self, data: dict[str, Any], doc_type: DocumentType) -> float:
         """
         Calculate extraction confidence based on field completeness.
         This is a heuristic — production systems would use ground truth.

@@ -1,0 +1,7 @@
+# Pin an explicit lint rule set so CI and local agree across ruff releases.
+# (ruff 0.16 expanded its default rules, which would otherwise break CI on a
+# clean checkout without any code change.)
+line-length = 100
+
+[lint]
+select = ["E", "F", "W", "I"]

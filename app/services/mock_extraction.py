@@ -158,9 +158,7 @@ def mock_extract_contract(ocr_text: str) -> dict[str, Any]:
     }
 
 
-def mock_extract(
-    ocr_text: str, document_type: DocumentType
-) -> tuple[dict[str, Any], str, float]:
+def mock_extract(ocr_text: str, document_type: DocumentType) -> tuple[dict[str, Any], str, float]:
     """
     Main mock extraction entry point.
     Returns: (extracted_data, prompt_version, confidence_score)
