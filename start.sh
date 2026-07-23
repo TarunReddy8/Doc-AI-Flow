@@ -63,9 +63,8 @@ fi
 
 mkdir -p data/chroma data/sample_docs data/mlflow_artifacts
 
-# ── Generate sample documents ────────────────────────────
-echo -e "${YELLOW}[5/6] Generating sample documents...${NC}"
-python3 data/generate_samples.py 2>/dev/null || echo "  (Sample generation skipped — run manually if needed)"
+# ── Sample data ──────────────────────────────────────────
+echo -e "${YELLOW}[5/6] Real receipt samples ship in data/cord_receipts/ (regen: python3 data/download_cord.py)${NC}"
 
 # ── Launch services ──────────────────────────────────────
 echo -e "${YELLOW}[6/6] Starting services...${NC}"

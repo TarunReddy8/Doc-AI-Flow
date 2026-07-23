@@ -80,9 +80,6 @@ jobs:
       - name: Create required directories
         run: mkdir -p data/chroma data/sample_docs data/mlflow_artifacts
 
-      - name: Generate sample documents
-        run: python data/generate_samples.py
-
       - name: Run tests
         run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
 
@@ -124,8 +121,8 @@ jobs:
       - name: Create directories
         run: mkdir -p data/chroma data/mlflow_artifacts
 
-      - name: Run evaluation pipeline
-        run: python -m ml.pipelines.evaluation --doc-type invoice
+      - name: Run evaluation pipeline (real CORD receipts)
+        run: python -m ml.pipelines.evaluation
 
   # ── 4. BUILD DOCKER IMAGE ─────────────────────────────────────────────
   build:

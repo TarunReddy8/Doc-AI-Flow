@@ -1,97 +1,113 @@
-"""
-Evaluation Pipeline — compares extraction results against ground truth
-to measure prompt quality and trigger retraining decisions.
+"""Evaluation Pipeline — measures extraction accuracy on REAL receipt data.
+
+Ground truth comes from CORD-v2 (naver-clova-ix/cord-v2), a public dataset of real
+photographed store receipts with human-annotated fields. For each real receipt we
+render its true fields into a receipt-style text layout (with the label variation real
+receipts show — TOTAL / Amount Due, Sub Total / Subtotal, Tax / VAT), run the actual
+rule-based extractor, and score the extracted fields against the real ground truth.
+
+Unlike a copy-the-answer demo, this exercises the real extraction code, so accuracy is
+honest and below 100%. The image -> OCR -> LLM path (app/services) handles the raw
+receipt photos when the OCR stack and an LLM key are available; this offline pipeline
+scores the deterministic extractor on real receipt field distributions.
+
+Data: CORD-v2, CC-BY-4.0 — see NOTICE. Regenerate with: python data/download_cord.py
 
 Usage:
-    python -m ml.pipelines.evaluation --doc-type invoice --window 100
+    python -m ml.pipelines.evaluation
 """
 
 from __future__ import annotations
 
-import json
 import argparse
+import json
+from pathlib import Path
 from typing import Any
 
-# Ground truth samples for evaluation (in production, load from a database)
-GROUND_TRUTH_SAMPLES = {
-    "invoice": [
-        {
-            "ocr_text": """
-INVOICE #INV-2024-0847
-Date: March 15, 2024
-Due: April 15, 2024
+from app.services.receipt_extractor import extract_receipt_fields
 
-FROM: Acme Corp, 123 Business Ave, New York, NY 10001
-TO: Widget Inc, 456 Commerce St, San Francisco, CA 94102
+CORD_DIR = Path(__file__).resolve().parents[2] / "data" / "cord_receipts"
 
-Item                    Qty    Unit Price    Total
-Cloud Hosting (monthly)  1     $2,400.00    $2,400.00
-API Calls (10K bundle)   3       $150.00      $450.00
-Support Premium          1       $500.00      $500.00
+# label variants cycled deterministically so the extractor faces real-world variation
+_TOTAL_LABELS = ["TOTAL", "Grand Total", "Amount Due"]
+_SUBTOTAL_LABELS = ["Subtotal", "Sub Total"]
+_TAX_LABELS = ["Tax", "VAT", "PPN"]
 
-Subtotal: $3,350.00
-Tax (8.5%): $284.75
-TOTAL: $3,634.75
-Payment Terms: Net 30
-            """,
-            "expected": {
-                "invoice_number": "INV-2024-0847",
-                "invoice_date": "March 15, 2024",
-                "due_date": "April 15, 2024",
-                "vendor_name": "Acme Corp",
-                "customer_name": "Widget Inc",
-                "total_amount": 3634.75,
-                "subtotal": 3350.00,
-                "tax": 284.75,
-                "currency": "USD",
-                "line_items_count": 3,
-            },
-        },
-        {
-            "ocr_text": """
-Invoice Number: 20240322-A
-Invoice Date: 22/03/2024
-Payment Due: 22/04/2024
 
-Seller: TechParts GmbH
-Hauptstrasse 42, 10115 Berlin, Germany
+_CURRENCIES = ["", "Rp ", "$ ", "IDR "]
 
-Buyer: DataFlow Ltd
-10 Downing Tech Park, London, EC1A 1BB, UK
 
-Description                 Qty   Price      Amount
-GPU Server Rack (Dell)       2    €8,500.00  €17,000.00
-Cooling Unit Installation    1    €3,200.00   €3,200.00
+def _as_list(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, dict):
+        return [value]
+    return value if isinstance(value, list) else []
 
-Net Total: €20,200.00
-VAT (19%): €3,838.00
-Grand Total: €24,038.00
-Terms: Net 30 days
-            """,
-            "expected": {
-                "invoice_number": "20240322-A",
-                "invoice_date": "22/03/2024",
-                "due_date": "22/04/2024",
-                "vendor_name": "TechParts GmbH",
-                "customer_name": "DataFlow Ltd",
-                "total_amount": 24038.00,
-                "subtotal": 20200.00,
-                "tax": 3838.00,
-                "currency": "EUR",
-                "line_items_count": 2,
-            },
-        },
-    ],
-}
+
+def render_receipt_text(raw_parse: dict[str, Any], idx: int = 0) -> str:
+    """Render the FULL real CORD receipt parse into a realistic receipt-text layout.
+
+    Faithful to the real receipt: item numbers, unit prices, sub-items, per-item
+    discounts, service/tax lines, and cash/change footer are all emitted from the real
+    annotation. The extractor must isolate the true fields amid this real complexity, so
+    the resulting accuracy is genuine (not a clean copy-back of the scored fields).
+    """
+    cur = _CURRENCIES[idx % len(_CURRENCIES)]
+
+    def money(value: str | float) -> str:
+        return f"{cur}{value}"
+
+    lines = ["TOKO SERBA ADA", f"No. #{1000 + idx}   2024-03-{10 + idx % 18:02d} 1{idx % 9}:22"]
+    lines.append("-" * 24)
+
+    for item in _as_list(raw_parse.get("menu")):
+        nm = str(item.get("nm", "item")).strip()
+        num = item.get("num")
+        cnt = item.get("cnt")
+        unit = item.get("unitprice")
+        price = item.get("price")
+        tag = f" ({num})" if num else ""
+        cells = []
+        if cnt:
+            cells.append(f"{str(cnt).strip()} x")
+        if unit:
+            cells.append(money(str(unit).strip()))
+        if price:
+            cells.append(money(str(price).strip()))
+        lines.append(f"{nm}{tag}   {'   '.join(cells)}".rstrip())
+        if item.get("discountprice"):
+            lines.append(f"  Discount   -{money(str(item['discountprice']).strip())}")
+        for sub in _as_list(item.get("sub")):
+            sub_price = str(sub.get("price", "")).strip()
+            lines.append(f"  {str(sub.get('nm', '')).strip()}   {money(sub_price)}")
+
+    lines.append("-" * 24)
+    sub_total = raw_parse.get("sub_total", {}) or {}
+    if sub_total.get("subtotal_price"):
+        lines.append(f"{_SUBTOTAL_LABELS[idx % len(_SUBTOTAL_LABELS)]}   "
+                     f"{money(str(sub_total['subtotal_price']).strip())}")
+    if sub_total.get("discount_price"):
+        lines.append(f"Discount   -{money(str(sub_total['discount_price']).strip())}")
+    if sub_total.get("service_price"):
+        lines.append(f"Service Charge   {money(str(sub_total['service_price']).strip())}")
+    if sub_total.get("tax_price"):
+        lines.append(f"{_TAX_LABELS[idx % len(_TAX_LABELS)]}   "
+                     f"{money(str(sub_total['tax_price']).strip())}")
+
+    total = raw_parse.get("total", {}) or {}
+    if total.get("total_price"):
+        lines.append(f"{_TOTAL_LABELS[idx % len(_TOTAL_LABELS)]}   "
+                     f"{money(str(total['total_price']).strip())}")
+    if total.get("cashprice"):
+        lines.append(f"CASH   {money(str(total['cashprice']).strip())}")
+    if total.get("changeprice"):
+        lines.append(f"CHANGE   {money(str(total['changeprice']).strip())}")
+    return "\n".join(lines)
 
 
 def calculate_field_accuracy(
     extracted: dict[str, Any], expected: dict[str, Any]
 ) -> dict[str, Any]:
-    """
-    Compare extracted fields against ground truth.
-    Returns per-field and overall accuracy.
-    """
+    """Compare extracted fields against ground truth; per-field and overall accuracy."""
     results = {}
     correct = 0
     total = 0
@@ -102,7 +118,7 @@ def calculate_field_accuracy(
 
         if field == "line_items_count":
             items = extracted.get("line_items", [])
-            actual = len(items) if isinstance(items, list) else 0
+            actual = len(items) if isinstance(items, list) else extracted.get(field)
             match = actual == expected_value
         elif isinstance(expected_value, (int, float)):
             try:
@@ -133,65 +149,73 @@ def calculate_field_accuracy(
     return results
 
 
-def run_evaluation(
-    document_type: str = "invoice",
-    prompt_versions: list[str] | None = None,
-) -> dict[str, Any]:
-    """
-    Run evaluation across all ground truth samples for a document type.
-    Compare multiple prompt versions if specified.
-    """
-    samples = GROUND_TRUTH_SAMPLES.get(document_type, [])
-    if not samples:
-        return {"error": f"No ground truth for type: {document_type}"}
+def load_cord_ground_truth() -> list[dict[str, Any]]:
+    gt_file = CORD_DIR / "ground_truth.jsonl"
+    if not gt_file.exists():
+        return []
+    records = []
+    for line in gt_file.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            records.append(json.loads(line))
+    return records
+
+
+# fields scored against ground truth (line_items compared by count)
+_SCORED_FIELDS = ("total_amount", "subtotal", "tax", "line_items_count")
+
+
+def run_evaluation() -> dict[str, Any]:
+    """Run the real extractor against real CORD receipts and score field accuracy."""
+    receipts = load_cord_ground_truth()
+    if not receipts:
+        return {"error": f"No CORD data in {CORD_DIR}. Run: python data/download_cord.py"}
 
     print(f"\n{'=' * 60}")
-    print(f"  DocAI Evaluation Pipeline — {document_type.upper()}")
-    print(f"  Samples: {len(samples)}")
+    print("  DocAI Evaluation Pipeline - CORD-v2 (real receipts)")
+    print(f"  Receipts: {len(receipts)}")
     print(f"{'=' * 60}\n")
 
-    # In production, this would call the extraction service
-    # Here we demonstrate the evaluation framework
-    report = {
-        "document_type": document_type,
-        "total_samples": len(samples),
-        "samples": [],
-    }
+    report: dict[str, Any] = {"dataset": "cord-v2", "total_samples": len(receipts),
+                              "samples": []}
+    for i, rec in enumerate(receipts):
+        truth = rec["ground_truth"]
+        expected = {f: truth[f] for f in _SCORED_FIELDS if truth.get(f) is not None}
+        text = render_receipt_text(rec["raw_parse"], i)   # full real receipt layout
+        extracted = extract_receipt_fields(text)          # <-- real extraction
+        accuracy = calculate_field_accuracy(extracted, expected)
+        print(f"  {rec['image']}: {accuracy['_summary']['accuracy'] * 100:5.1f}%  "
+              f"({accuracy['_summary']['correct']}/{accuracy['_summary']['total']} fields)")
+        report["samples"].append({"image": rec["image"], **accuracy})
 
-    for i, sample in enumerate(samples):
-        print(f"Sample {i + 1}/{len(samples)}:")
-        print(f"  Expected fields: {list(sample['expected'].keys())}")
-
-        # Placeholder — in production, call extraction_service.extract()
-        # extracted = await extraction_service.extract(sample["ocr_text"], ...)
-        # For demo, we simulate a result
-        simulated_extraction = sample["expected"].copy()  # Perfect extraction
-        accuracy = calculate_field_accuracy(simulated_extraction, sample["expected"])
-
-        print(f"  Accuracy: {accuracy['_summary']['accuracy'] * 100:.1f}%")
-        print(
-            f"  Fields: {accuracy['_summary']['correct']}/{accuracy['_summary']['total']}"
-        )
-        report["samples"].append(accuracy)
-
-    # Overall accuracy
     all_correct = sum(s["_summary"]["correct"] for s in report["samples"])
     all_total = sum(s["_summary"]["total"] for s in report["samples"])
     report["overall_accuracy"] = round(all_correct / max(all_total, 1), 4)
 
+    # per-field accuracy across the set
+    per_field: dict[str, list[bool]] = {}
+    for s in report["samples"]:
+        for field, res in s.items():
+            if field == "_summary" or not isinstance(res, dict) or "match" not in res:
+                continue
+            per_field.setdefault(field, []).append(res["match"])
+    report["per_field_accuracy"] = {
+        f: round(sum(v) / len(v), 4) for f, v in per_field.items()}
+
     print(f"\n{'=' * 60}")
-    print(f"  Overall Accuracy: {report['overall_accuracy'] * 100:.1f}%")
-    print(f"  Total Fields Evaluated: {all_total}")
+    print(f"  Overall field accuracy: {report['overall_accuracy'] * 100:.1f}%  "
+          f"({all_correct}/{all_total} fields on {len(receipts)} real receipts)")
+    for field, acc in sorted(report["per_field_accuracy"].items()):
+        print(f"    {field:18s} {acc * 100:5.1f}%")
     print(f"{'=' * 60}\n")
 
     return report
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="DocAI Evaluation Pipeline")
-    parser.add_argument("--doc-type", default="invoice", help="Document type")
-    parser.add_argument("--window", type=int, default=100, help="Evaluation window")
+    parser = argparse.ArgumentParser(description="DocAI Evaluation Pipeline (CORD-v2)")
+    parser.add_argument("--json", action="store_true", help="print full JSON report")
     args = parser.parse_args()
 
-    results = run_evaluation(document_type=args.doc_type)
-    print(json.dumps(results, indent=2, default=str))
+    results = run_evaluation()
+    if args.json:
+        print(json.dumps(results, indent=2, default=str))

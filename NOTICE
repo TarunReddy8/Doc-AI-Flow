@@ -1,0 +1,18 @@
+DocAI — third-party data attribution
+=====================================
+
+The receipt images and ground-truth labels under data/cord_receipts/ are derived from:
+
+    CORD: A Consolidated Receipt Dataset for Post-OCR Parsing (CORD-v2)
+    https://huggingface.co/datasets/naver-clova-ix/cord-v2
+    License: CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/)
+    Park et al., "CORD: A Consolidated Receipt Dataset for Post-OCR Parsing",
+    Document Intelligence Workshop at NeurIPS 2019.
+
+DocAI downloads a small sample of real CORD receipt images and their real annotated
+fields (line items, subtotal, tax, total) and flattens each into DocAI's receipt schema
+for use by the evaluation pipeline (ml/pipelines/evaluation.py). Attribution is retained
+in accordance with CC-BY-4.0. DocAI's own source code is under the MIT License (see
+LICENSE).
+
+Regenerate the sample with: python data/download_cord.py

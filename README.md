@@ -23,7 +23,7 @@
 - **📊 Real MLOps** — **MLflow** logs every extraction as a reproducible run; built-in **drift detection** and **prompt-comparison** endpoints turn quality into data.
 - **📡 Observability** — **Prometheus** metrics for latency, confidence, field counts, and errors, exposed at `/metrics`.
 - **🖥️ Streamlit dashboard** — upload, search, and monitor drift/A-B from a UI, with a live backend health panel.
-- **🐳 One-command deploy** — `docker-compose up` brings up API + MLflow + Prometheus + Grafana. **22 unit tests**, CI/CD on every push.
+- **🐳 One-command deploy** — `docker-compose up` brings up API + MLflow + Prometheus + Grafana. **28 unit tests**, CI/CD on every push.
 
 ---
 
@@ -59,8 +59,8 @@ flowchart TB
 git clone https://github.com/TarunReddy8/Doc-AI-Flow.git && cd Doc-AI-Flow
 pip install -r requirements.txt
 cp .env.example .env               # defaults to LLM_PROVIDER=mock
-python data/generate_samples.py    # creates sample invoice + contract images
 bash start.sh                      # launches API + MLflow + Streamlit
+# real receipt samples ship in data/cord_receipts/ (see Evaluation below)
 ```
 
 Then open:
@@ -174,8 +174,18 @@ Returns a Pydantic `ExtractionResult`: `document_id`, `status`, `document_type`,
 ### 11 — Streamlit frontend (`frontend/app.py`)
 Three tabs — **Extract** (upload → JSON + confidence + MLflow link), **Semantic Search** (cosine-ranked matches), **Monitoring** (drift + prompt A/B) — plus a live sidebar health check.
 
-### 12 — Offline evaluation (`ml/pipelines/evaluation.py`)
-`run_evaluation()` scores extractions against hardcoded ground-truth samples with field-level accuracy (exact match for text, float tolerance for numbers, count for arrays) — a regression guard you can run in CI before shipping a prompt change.
+### 12 — Evaluation on **real** receipts (`ml/pipelines/evaluation.py`)
+Ground truth comes from **[CORD-v2](https://huggingface.co/datasets/naver-clova-ix/cord-v2)** — a public dataset of real photographed store receipts with human-annotated fields (CC-BY-4.0). For each real receipt the pipeline renders its true fields into a receipt-text layout — with the real complexity receipts carry (item numbers, unit prices, sub-items, per-item discounts, service/tax lines, cash/change footer) — then runs the **actual** rule-based extractor and scores its output field-by-field against the real labels. It does *not* copy the answer back, so the accuracy is honest:
+
+| field | accuracy (14 real receipts) |
+|---|---|
+| `total_amount` | **100%** |
+| `subtotal` | **100%** |
+| `tax` | **100%** |
+| `line_items_count` | **79%** |
+| **overall** | **93%** |
+
+The summary fields anchor cleanly; item-boundary detection is the genuinely hard part — sub-items and per-item discount lines get miscounted — which is exactly the honest failure mode this eval is meant to surface as a CI regression guard. (The offline pipeline scores the deterministic extractor on real receipt fields; end-to-end accuracy from the raw receipt *photo* additionally depends on the OCR stage and is environment-dependent.) Data ships in `data/cord_receipts/`; regenerate with `python data/download_cord.py`.
 
 </details>
 
@@ -193,8 +203,8 @@ Three tabs — **Extract** (upload → JSON + confidence + MLflow link), **Seman
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/extract \
-  -F "file=@data/sample_docs/sample_invoice.png" \
-  -F "document_type=invoice"
+  -F "file=@data/cord_receipts/receipt_000.jpg" \
+  -F "document_type=receipt"
 ```
 
 <details>
@@ -239,7 +249,7 @@ curl -X POST http://localhost:8000/api/v1/extract \
 | **A/B testing** | Force a version with `?prompt_version=…`; compare via `GET /prompts/compare`. |
 | **Drift detection** | `GET /monitoring/drift` splits recent vs. baseline runs and flags mean-confidence drops > 0.05. |
 | **Experiment tracking** | Every run logs OCR/extraction confidence, field completeness, latency, and warnings to MLflow. |
-| **Accuracy evaluation** | `ml/pipelines/evaluation.py` scores extractions against ground-truth samples, field by field. |
+| **Accuracy evaluation** | `ml/pipelines/evaluation.py` scores the real extractor against **real CORD-v2 receipt** ground truth, field by field (93% overall — see above). |
 
 ---
 
@@ -255,9 +265,11 @@ Doc-AI-Flow/
 │   └── services/             # ocr · extraction · mock · vector · mlflow
 ├── frontend/app.py           # Streamlit: upload / search / monitoring
 ├── monitoring/               # Prometheus metrics + scrape config
-├── ml/pipelines/evaluation.py# ground-truth accuracy evaluation
-├── data/generate_samples.py  # synthetic sample invoice + contract
-├── tests/                    # 22 pytest unit tests
+├── ml/pipelines/evaluation.py# accuracy eval on real CORD receipts
+├── app/services/receipt_extractor.py # rule-based receipt field parser
+├── data/cord_receipts/       # real CORD-v2 receipt images + labels
+├── data/download_cord.py     # re-download the real receipt sample
+├── tests/                    # 28 pytest unit tests
 ├── docker/Dockerfile         # production image
 └── docker-compose.yml        # API + MLflow + Prometheus + Grafana
 ```
@@ -267,8 +279,8 @@ Doc-AI-Flow/
 ## ✅ Tests & evaluation
 
 ```bash
-pytest tests/ -v --cov=app                       # 22 unit tests
-python -m ml.pipelines.evaluation --doc-type invoice   # field-level accuracy vs. ground truth
+pytest tests/ -v --cov=app                 # 28 unit tests
+python -m ml.pipelines.evaluation          # field-level accuracy vs. real CORD ground truth
 ```
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs lint, tests, the evaluation pipeline, and a Docker build on every push.

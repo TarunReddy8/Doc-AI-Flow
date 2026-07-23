@@ -117,8 +117,8 @@ Open http://localhost:5000 — see every extraction logged as an experiment.
 ### Quick API test with curl:
 ```bash
 curl -X POST http://localhost:8000/api/v1/extract \
-  -F "file=@data/sample_docs/sample_invoice.png" \
-  -F "document_type=invoice"
+  -F "file=@data/cord_receipts/receipt_000.jpg" \
+  -F "document_type=receipt"
 ```
 
 ### Run unit tests:
@@ -128,7 +128,7 @@ pytest tests/ -v --cov=app
 
 ### Run evaluation pipeline:
 ```bash
-python -m ml.pipelines.evaluation --doc-type invoice
+python -m ml.pipelines.evaluation
 ```
 
 ---
